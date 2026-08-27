@@ -36,7 +36,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# Clean White Enterprise UI Theme (Matching Dropbox Admin Console)
+# Exhaustive Clean Light Enterprise UI Theme
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -61,7 +61,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Container Responsive Padding (Clearance for top navigation) */
+    /* Container Responsive Padding */
     .block-container {
         padding-top: 5rem !important;
         padding-bottom: 2.5rem !important;
@@ -85,13 +85,20 @@ st.markdown("""
         margin: 12px 0 !important;
     }
 
-    /* Hide ugly circular radio buttons; make sidebar items sleek clickable pills */
-    div[data-testid="stRadio"] label > div:first-child {
-        display: none !important;
+    /* Hide ALL circular radio buttons in Sidebar across all Streamlit versions */
+    div[data-testid="stRadio"] [role="radiogroup"] {
+        gap: 4px !important;
     }
 
-    div[data-testid="stRadio"] [role="radiogroup"] {
-        gap: 3px !important;
+    div[data-testid="stRadio"] label > div:first-child,
+    div[data-testid="stRadio"] input[type="radio"],
+    div[data-testid="stRadio"] [data-testid="stRadioItem"] > div:first-child {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     div[data-testid="stRadio"] label {
@@ -102,6 +109,7 @@ st.markdown("""
         margin-bottom: 2px !important;
         background-color: transparent !important;
         border: 1px solid transparent !important;
+        width: 100% !important;
     }
 
     div[data-testid="stRadio"] label:hover {
@@ -120,7 +128,101 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* Responsive Top Header Bar */
+    /* =========================================================================
+       INPUTS, SELECTBOXES, TEXTAREAS & CODE BLOCKS - FORCE CLEAN LIGHT STYLING
+       ========================================================================= */
+    
+    /* Text Inputs & Textareas */
+    .stTextInput input,
+    .stTextArea textarea,
+    div[data-baseweb="input"] input,
+    div[data-baseweb="textarea"] textarea {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 6px !important;
+        font-size: 0.88rem !important;
+    }
+
+    .stTextInput input:focus,
+    .stTextArea textarea:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 1px #2563eb !important;
+    }
+
+    /* BaseWeb Input & Textarea Containers */
+    div[data-baseweb="input"],
+    div[data-baseweb="base-input"],
+    div[data-baseweb="textarea"] {
+        background-color: #ffffff !important;
+        border-radius: 6px !important;
+    }
+
+    /* Selectboxes */
+    div[data-baseweb="select"],
+    div[data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
+        border-radius: 6px !important;
+    }
+
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] div {
+        color: #111827 !important;
+    }
+
+    /* Selectbox Dropdown Menu (Popover) */
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] ul,
+    div[data-baseweb="menu"] {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #e5e7eb !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important;
+    }
+
+    div[data-baseweb="menu"] li {
+        color: #111827 !important;
+        background-color: #ffffff !important;
+    }
+
+    div[data-baseweb="menu"] li:hover {
+        background-color: #f3f4f6 !important;
+    }
+
+    /* Labels above inputs */
+    label[data-testid="stWidgetLabel"],
+    label[data-testid="stWidgetLabel"] p,
+    label[data-testid="stWidgetLabel"] span {
+        color: #374151 !important;
+        font-weight: 600 !important;
+        font-size: 0.84rem !important;
+    }
+
+    /* Code Blocks & Inline Code */
+    code, pre, .stCodeBlock, div[data-testid="stCodeBlock"] {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 5px !important;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+        font-size: 0.84rem !important;
+    }
+
+    div[data-testid="stCodeBlock"] pre {
+        background-color: #f1f5f9 !important;
+    }
+
+    /* Alert / Info Boxes */
+    div[data-testid="stAlert"] {
+        background-color: #f8fafc !important;
+        color: #334155 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 6px !important;
+    }
+
+    /* Top Search & Profile Bar */
     .top-header-bar {
         display: flex;
         flex-wrap: wrap;
@@ -166,7 +268,7 @@ st.markdown("""
         font-size: 0.8rem;
     }
 
-    /* To-Do Alert Banners (Directly matching screenshot) */
+    /* To-Do Alert Banners */
     .todo-banner {
         background: #ffffff;
         border: 1px solid #e5e7eb;
@@ -391,7 +493,7 @@ st.markdown("""
 
 
 # -----------------------------------------------------------------------------
-# TAB 1: DASHBOARD OVERVIEW (Clean White Layout matching screenshot)
+# TAB 1: DASHBOARD OVERVIEW
 # -----------------------------------------------------------------------------
 if "Dashboard" in navigation or "Overview" in navigation:
     st.markdown("<h1 style='font-size: 1.65rem; font-weight: 700; color: #111827; margin: 0 0 16px 0;'>Dashboard</h1>", unsafe_allow_html=True)
@@ -405,9 +507,7 @@ if "Dashboard" in navigation or "Overview" in navigation:
         cold_leads = len(leads_df[leads_df["classification"].str.lower() == "cold"])
         avg_score = leads_df["score"].mean() if total_leads > 0 else 0
 
-        # ---------------------------------------------------------------------
-        # To-Do Action Cards (Matching Screenshot)
-        # ---------------------------------------------------------------------
+        # To-Do Action Cards
         st.markdown("<div style='font-size: 0.9rem; font-weight: 700; color: #111827; margin-bottom: 8px;'>To do (2)</div>", unsafe_allow_html=True)
 
         col_t1, col_t2 = st.columns(2)
@@ -439,9 +539,7 @@ if "Dashboard" in navigation or "Overview" in navigation:
 
         st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
 
-        # ---------------------------------------------------------------------
-        # Top 2 Summary Cards (Licenses & Storage style)
-        # ---------------------------------------------------------------------
+        # Top 2 Summary Cards
         card1, card2 = st.columns(2)
 
         with card1:
@@ -476,9 +574,7 @@ if "Dashboard" in navigation or "Overview" in navigation:
             </div>
             """, unsafe_allow_html=True)
 
-        # ---------------------------------------------------------------------
-        # Storage Details / Lead Breakdown Card (Screenshot style)
-        # ---------------------------------------------------------------------
+        # Storage Details / Lead Breakdown Card
         st.markdown("<div style='font-size: 0.95rem; font-weight: 700; color: #111827; margin: 14px 0 8px 0;'>Lead Breakdown Details</div>", unsafe_allow_html=True)
 
         st.markdown("<div class='white-card'>", unsafe_allow_html=True)
@@ -530,9 +626,7 @@ if "Dashboard" in navigation or "Overview" in navigation:
                 """, unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ---------------------------------------------------------------------
-        # Bottom History Row (Lavender Area Chart & Service Bar Chart)
-        # ---------------------------------------------------------------------
+        # Bottom History Row
         hist_col1, hist_col2 = st.columns(2)
 
         with hist_col1:
@@ -591,7 +685,7 @@ if "Dashboard" in navigation or "Overview" in navigation:
 
 
 # -----------------------------------------------------------------------------
-# TAB 2: LEAD PIPELINE TABLE (Responsive Clean White Table)
+# TAB 2: LEAD PIPELINE TABLE
 # -----------------------------------------------------------------------------
 elif "Table" in navigation or "Pipeline" in navigation:
     st.markdown("<h1 style='font-size: 1.65rem; font-weight: 700; color: #111827; margin: 0 0 16px 0;'>Lead Pipeline Management</h1>", unsafe_allow_html=True)
