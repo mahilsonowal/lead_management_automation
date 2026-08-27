@@ -1,0 +1,358 @@
+{
+  "name": "Phase 1 - Lead Management and Follow-Up Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Lead Inquiry Form",
+        "formDescription": "Submit your inquiry for virtual assistant and AI automation services.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company",
+              "requiredField": false
+            },
+            {
+              "fieldLabel": "Requested Service",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-form-trigger",
+      "name": "Lead Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "lead-intake-form"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Extract raw inputs from Form Trigger or Webhook\nconst item = $input.first().json;\n\n// Handle different field naming variations (Form Trigger vs Webhook payload)\nconst rawName = item['Full Name'] || item.name || '';\nconst rawEmail = item['Email'] || item.email || '';\nconst rawCompany = item['Company'] || item.company || '';\nconst rawService = item['Requested Service'] || item.requested_service || item.service || '';\nconst rawMessage = item['Message'] || item.message || '';\n\n// 2. Whitespace normalization\nconst normalizedName = String(rawName).trim().replace(/\\s+/g, ' ');\nconst normalizedEmail = String(rawEmail).trim().toLowerCase();\nconst normalizedCompany = String(rawCompany).trim().replace(/\\s+/g, ' ');\nconst normalizedService = String(rawService).trim().replace(/\\s+/g, ' ');\nconst normalizedMessage = String(rawMessage).trim().replace(/\\s+/g, ' ');\n\n// 3. Generate unique Lead ID & ISO Timestamp\nconst now = new Date();\nconst datePrefix = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst randomSuffix = Math.floor(1000 + Math.random() * 9000);\nconst leadId = `LEAD-${datePrefix}-${randomSuffix}`;\n\nreturn [{\n  json: {\n    lead_id: leadId,\n    name: normalizedName,\n    email: normalizedEmail,\n    company: normalizedCompany,\n    requested_service: normalizedService,\n    message: normalizedMessage,\n    received_at: now.toISOString()\n  }\n}];"
+      },
+      "id": "node-normalize-fields",
+      "name": "Normalize Lead Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst errors = [];\n\n// Rule 1: Name must not be empty\nif (!item.name || item.name.length < 2) {\n  errors.push('Full name is required and must have at least 2 characters.');\n}\n\n// Rule 2: Email must match valid email format\nconst emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/;\nif (!item.email || !emailRegex.test(item.email)) {\n  errors.push('A valid email address is required.');\n}\n\n// Rule 3: Requested service must not be empty\nif (!item.requested_service || item.requested_service.length < 2) {\n  errors.push('Requested service is required.');\n}\n\n// Rule 4: Message must not be empty\nif (!item.message || item.message.length < 5) {\n  errors.push('Message is required and must contain at least 5 characters.');\n}\n\nconst isValid = errors.length === 0;\n\nreturn [{\n  json: {\n    ...item,\n    is_valid: isValid,\n    validation_errors: errors,\n    validation_checked_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-validate-lead",
+      "name": "Validate Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.is_valid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-is-valid-if",
+      "name": "Is Lead Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet score = 0;\nconst scoreBreakdown = {};\n\nconst messageLower = (item.message || '').toLowerCase();\nconst serviceLower = (item.requested_service || '').toLowerCase();\n\n// 1. Urgency check (+30 pts)\nconst urgencyKeywords = ['urgent', 'urgently', 'immediately', 'asap', 'right away', 'emergency'];\nconst hasUrgency = urgencyKeywords.some(kw => messageLower.includes(kw));\nif (hasUrgency) {\n  score += 30;\n  scoreBreakdown.urgency_keywords = 30;\n} else {\n  scoreBreakdown.urgency_keywords = 0;\n}\n\n// 2. High-value service check (+25 pts)\nconst targetServices = ['automation', 'crm', 'ai', 'customer support', 'workflow'];\nconst hasTargetService = targetServices.some(svc => serviceLower.includes(svc));\nif (hasTargetService) {\n  score += 25;\n  scoreBreakdown.high_value_service = 25;\n} else {\n  scoreBreakdown.high_value_service = 0;\n}\n\n// 3. Company name provided (+20 pts)\nif (item.company && item.company.trim().length > 0) {\n  score += 20;\n  scoreBreakdown.company_provided = 20;\n} else {\n  scoreBreakdown.company_provided = 0;\n}\n\n// 4. Valid email format (+15 pts)\nconst emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/;\nif (item.email && emailRegex.test(item.email)) {\n  score += 15;\n  scoreBreakdown.valid_email = 15;\n} else {\n  scoreBreakdown.valid_email = 0;\n}\n\n// 5. Message length >= 30 characters (+10 pts)\nif (item.message && item.message.trim().length >= 30) {\n  score += 10;\n  scoreBreakdown.message_depth = 10;\n} else {\n  scoreBreakdown.message_depth = 0;\n}\n\n// Clamp score between 0 and 100\nscore = Math.min(100, Math.max(0, score));\n\n// Classification\nlet classification = 'Cold';\nlet nextAction = 'Enroll in automated nurture sequence';\nlet priority = 'Low';\n\nif (score >= 70) {\n  classification = 'Hot';\n  nextAction = 'Immediate direct callback within 15 minutes by Senior Automation Specialist';\n  priority = 'High';\n} else if (score >= 40) {\n  classification = 'Warm';\n  nextAction = 'Send service portfolio deck and schedule standard discovery call within 24 hours';\n  priority = 'Medium';\n}\n\nreturn [{\n  json: {\n    ...item,\n    score: score,\n    classification: classification,\n    score_breakdown: scoreBreakdown,\n    next_action: nextAction,\n    priority: priority,\n    scored_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-lead-scoring",
+      "name": "Calculate Lead Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "mock_reply",
+              "value": "=Hello {{ $json.name }}, thank you for contacting us about {{ $json.requested_service }}. We have received your inquiry and will review it shortly. Our team will contact you regarding the next steps."
+            },
+            {
+              "name": "reply_subject",
+              "value": "=Inquiry Received: {{ $json.requested_service }} | Next Steps"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-generate-reply",
+      "name": "Generate Mock Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1320, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// Structured Lead Record for persistent storage / database\nconst leadRecord = {\n  lead_id: item.lead_id,\n  received_at: item.received_at,\n  full_name: item.name,\n  email: item.email,\n  company: item.company || 'N/A',\n  requested_service: item.requested_service,\n  message: item.message,\n  lead_score: item.score,\n  classification: item.classification,\n  score_breakdown: JSON.stringify(item.score_breakdown),\n  status: 'PENDING_APPROVAL',\n  suggested_reply: item.mock_reply,\n  next_action: item.next_action,\n  stored_at: new Date().toISOString()\n};\n\nreturn [{\n  json: {\n    ...item,\n    lead_record: leadRecord,\n    is_stored: true\n  }\n}];"
+      },
+      "id": "node-save-lead",
+      "name": "Save Lead Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "task_id",
+              "value": "=TASK-{{ $json.lead_id }}"
+            },
+            {
+              "name": "task_title",
+              "value": "=[{{ $json.classification.toUpperCase() }} LEAD] Follow up with {{ $json.name }} ({{ $json.company || 'Independent' }})"
+            },
+            {
+              "name": "task_assigned_to",
+              "value": "Senior Automation VA Team"
+            },
+            {
+              "name": "task_priority",
+              "value": "={{ $json.priority }}"
+            },
+            {
+              "name": "task_next_action",
+              "value": "={{ $json.next_action }}"
+            },
+            {
+              "name": "task_status",
+              "value": "OPEN"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-create-task",
+      "name": "Create Follow-Up Task",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1760, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-human-approval",
+      "name": "Human Approval Simulation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1980, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "mock_email_status",
+              "value": "DISPATCHED_SIMULATION"
+            },
+            {
+              "name": "mock_email_to",
+              "value": "={{ $json.email }}"
+            },
+            {
+              "name": "mock_email_from",
+              "value": "inquiries@automationcompany.com"
+            },
+            {
+              "name": "mock_email_subject",
+              "value": "={{ $json.reply_subject }}"
+            },
+            {
+              "name": "mock_email_body",
+              "value": "={{ $json.mock_reply }}"
+            },
+            {
+              "name": "mock_email_sent_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-mock-email",
+      "name": "Mock Email Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [2200, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// Telemetry & Reporting summary\nconst logEntry = {\n  event: 'LEAD_PROCESSING_COMPLETED',\n  lead_id: item.lead_id,\n  lead_name: item.name,\n  lead_email: item.email,\n  classification: item.classification,\n  score: item.score,\n  task_id: item.task_id,\n  email_status: item.mock_email_status,\n  execution_timestamp: new Date().toISOString(),\n  status: 'SUCCESS'\n};\n\nreturn [{\n  json: {\n    status: 'SUCCESS',\n    lead_summary: logEntry,\n    lead_details: item\n  }\n}];"
+      },
+      "id": "node-log-success",
+      "name": "Log Workflow Result & Reporting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nconst failedEntry = {\n  event: 'LEAD_VALIDATION_FAILED',\n  lead_id: item.lead_id || 'UNKNOWN',\n  submitted_name: item.name || null,\n  submitted_email: item.email || null,\n  errors: item.validation_errors || [],\n  logged_at: new Date().toISOString(),\n  status: 'FAILED_VALIDATION'\n};\n\nreturn [{\n  json: {\n    status: 'FAILED_VALIDATION',\n    error_summary: failedEntry,\n    errors: item.validation_errors\n  }\n}];"
+      },
+      "id": "node-log-validation-error",
+      "name": "Log Validation Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 420]
+    }
+  ],
+  "connections": {
+    "Lead Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead Fields": {
+      "main": [
+        [
+          {
+            "node": "Validate Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Is Lead Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Lead Valid?": {
+      "main": [
+        [
+          {
+            "node": "Calculate Lead Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Lead Score": {
+      "main": [
+        [
+          {
+            "node": "Generate Mock Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Mock Reply": {
+      "main": [
+        [
+          {
+            "node": "Save Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead Record": {
+      "main": [
+        [
+          {
+            "node": "Create Follow-Up Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Follow-Up Task": {
+      "main": [
+        [
+          {
+            "node": "Human Approval Simulation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Approval Simulation": {
+      "main": [
+        [
+          {
+            "node": "Mock Email Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Email Output": {
+      "main": [
+        [
+          {
+            "node": "Log Workflow Result & Reporting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,49 @@
+# =============================================================================
+# Private Notes & Interview Preparation Files (Excluded from GitHub)
+# =============================================================================
+INTERVIEW_PREPARATION.md
+lead_automation_project.md
+PHASE1_STEP_BY_STEP_GUIDE.md
+PHASE2_STEP_BY_STEP_GUIDE.md
+PHASE3_STEP_BY_STEP_GUIDE.md
+PHASE4_STEP_BY_STEP_GUIDE.md
+
+# =============================================================================
+# Secrets & Environment Variables
+# =============================================================================
+.env
+*.env
+!.env.example
+
+# =============================================================================
+# Python Virtual Environments & Dependencies
+# =============================================================================
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+
+# Byte-compiled / Cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# =============================================================================
+# Local SQLite Database & Log Files
+# =============================================================================
+*.db
+*.sqlite3
+*.log
+
+# =============================================================================
+# OS & Editor Specific Files
+# =============================================================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+.claude/

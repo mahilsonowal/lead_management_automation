@@ -1,0 +1,76 @@
+{
+  "name": "Global Lead Management Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract error details provided by n8n Error Trigger\nconst errorData = $input.first().json;\n\nconst executionId = errorData.execution?.id || 'UNKNOWN_EXECUTION';\nconst workflowName = errorData.workflow?.name || 'Lead Intake & Qualification Pipeline';\nconst errorMessage = errorData.execution?.error?.message || 'Unspecified runtime exception';\nconst errorNode = errorData.execution?.error?.node?.name || 'Unknown Node';\nconst timestamp = new Date().toISOString();\n\n// Structured Alert Payload\nconst alertSummary = {\n  event: 'WORKFLOW_EXECUTION_FAILURE',\n  workflow: workflowName,\n  execution_id: executionId,\n  failed_node: errorNode,\n  error_message: errorMessage,\n  severity: 'CRITICAL',\n  logged_at: timestamp\n};\n\nreturn [{\n  json: {\n    ...alertSummary,\n    notification_message: `🚨 [CRITICAL ALERT] Workflow \"${workflowName}\" failed on Node [${errorNode}].\\nExecution ID: ${executionId}\\nError: ${errorMessage}\\nTimestamp: ${timestamp}`\n  }\n}];"
+      },
+      "id": "node-format-error",
+      "name": "Format Error Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-alert-status",
+              "name": "alert_dispatched",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "field-channel",
+              "name": "alert_channel",
+              "value": "Admin Incident Notification (Simulated Slack / Email)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-dispatch-alert",
+      "name": "Dispatch Incident Notification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Notification": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Incident Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
