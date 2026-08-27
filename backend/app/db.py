@@ -291,3 +291,15 @@ def seed_sample_leads_if_empty():
 
     for err in sample_errors:
         log_workflow_error(err["error_type"], err["error_message"], err["lead_id"], err["payload"])
+
+
+def reset_database_clean():
+    """Wipes all test leads and re-seeds clean, unique sample records."""
+    init_db()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM leads")
+        cursor.execute("DELETE FROM workflow_errors")
+        conn.commit()
+    seed_sample_leads_if_empty()
+

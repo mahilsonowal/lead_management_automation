@@ -13,6 +13,10 @@ BACKEND_DIR = os.path.join(BASE_DIR, "backend")
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
+import app.db
+import importlib
+importlib.reload(app.db)
+
 from app.db import (
     init_db,
     get_all_leads,
@@ -21,7 +25,8 @@ from app.db import (
     get_workflow_errors,
     seed_sample_leads_if_empty,
     save_lead,
-    log_workflow_error
+    log_workflow_error,
+    reset_database_clean
 )
 from app.scorer import analyze_lead_rules
 from app.models import LeadInput
@@ -469,10 +474,15 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
-    if st.button("Refresh Sample Data"):
-        seed_sample_leads_if_empty()
-        st.success("Data reloaded.")
-        st.rerun()
+    col_sb1, col_sb2 = st.columns(2)
+    with col_sb1:
+        if st.button("Reload", use_container_width=True):
+            st.rerun()
+    with col_sb2:
+        if st.button("Reset DB", use_container_width=True):
+            reset_database_clean()
+            st.success("Database reset to clean sample leads.")
+            st.rerun()
 
 
 # -----------------------------------------------------------------------------
@@ -851,54 +861,65 @@ elif "Simulator" in navigation:
     st.markdown("<div class='white-card'>", unsafe_allow_html=True)
     st.markdown("Select a preset profile or enter custom submission data to test real-time qualification scoring and database storage.")
 
+    if "sim_name" not in st.session_state:
+        st.session_state["sim_name"] = "Rahul Das"
+        st.session_state["sim_email"] = "rahul@example.com"
+        st.session_state["sim_company"] = "North East Digital Agency"
+        st.session_state["sim_service"] = "CRM and AI automation"
+        st.session_state["sim_message"] = "We urgently need help automating our customer support and lead follow-up process."
+
     p1, p2, p3 = st.columns(3)
-    preset_name = ""
-    preset_email = ""
-    preset_company = ""
-    preset_service = ""
-    preset_message = ""
 
-    if p1.button("Load Hot Lead (Rahul Das)"):
-        preset_name = "Rahul Das"
-        preset_email = "rahul@example.com"
-        preset_company = "North East Digital Agency"
-        preset_service = "CRM and AI automation"
-        preset_message = "We urgently need help automating our customer support and lead follow-up process."
+    if p1.button("Load Hot Lead (Rahul Das)", use_container_width=True):
+        st.session_state["sim_name"] = "Rahul Das"
+        st.session_state["sim_email"] = "rahul@example.com"
+        st.session_state["sim_company"] = "North East Digital Agency"
+        st.session_state["sim_service"] = "CRM and AI automation"
+        st.session_state["sim_message"] = "We urgently need help automating our customer support and lead follow-up process."
+        st.rerun()
 
-    if p2.button("Load Warm Lead (Priya Sharma)"):
-        preset_name = "Priya Sharma"
-        preset_email = "priya@example.com"
-        preset_company = "Bright SaaS"
-        preset_service = "SaaS operations"
-        preset_message = "We would like to learn more about improving our onboarding workflow."
+    if p2.button("Load Warm Lead (Priya Sharma)", use_container_width=True):
+        st.session_state["sim_name"] = "Priya Sharma"
+        st.session_state["sim_email"] = "priya@example.com"
+        st.session_state["sim_company"] = "Bright SaaS"
+        st.session_state["sim_service"] = "SaaS operations"
+        st.session_state["sim_message"] = "We would like to learn more about improving our onboarding workflow."
+        st.rerun()
 
-    if p3.button("Load Cold Lead (Amit Kumar)"):
-        preset_name = "Amit Kumar"
-        preset_email = "amit@example.com"
-        preset_company = ""
-        preset_service = "General inquiry"
-        preset_message = "Please send info."
+    if p3.button("Load Cold Lead (Amit Kumar)", use_container_width=True):
+        st.session_state["sim_name"] = "Amit Kumar"
+        st.session_state["sim_email"] = "amit@example.com"
+        st.session_state["sim_company"] = ""
+        st.session_state["sim_service"] = "General inquiry"
+        st.session_state["sim_message"] = "Please send info."
+        st.rerun()
 
     with st.form("lead_simulation_form"):
-        form_name = st.text_input("Full Name *", value=preset_name)
-        form_email = st.text_input("Email Address *", value=preset_email)
-        form_company = st.text_input("Company Name", value=preset_company)
-        form_service = st.text_input("Requested Service *", value=preset_service)
-        form_message = st.text_area("Inquiry Message *", value=preset_message)
+        form_name = st.text_input("Full Name *", value=st.session_state.get("sim_name", ""))
+        form_email = st.text_input("Email Address *", value=st.session_state.get("sim_email", ""))
+        form_company = st.text_input("Company Name", value=st.session_state.get("sim_company", ""))
+        form_service = st.text_input("Requested Service *", value=st.session_state.get("sim_service", ""))
+        form_message = st.text_area("Inquiry Message *", value=st.session_state.get("sim_message", ""))
         
         submitted = st.form_submit_button("Ingest and Qualify Lead")
 
         if submitted:
-            if not form_name or not form_email or not form_service or not form_message:
-                st.error("Please fill all required fields (*).")
+            name_val = (form_name or "").strip()
+            email_val = (form_email or "").strip()
+            company_val = (form_company or "").strip()
+            service_val = (form_service or "").strip()
+            message_val = (form_message or "").strip()
+
+            if not name_val or not email_val or not service_val or not message_val:
+                st.error("Please fill all required fields: Full Name, Email Address, Requested Service, and Message.")
             else:
                 try:
                     lead_input = LeadInput(
-                        name=form_name,
-                        email=form_email,
-                        company=form_company,
-                        requested_service=form_service,
-                        message=form_message
+                        name=name_val,
+                        email=email_val,
+                        company=company_val,
+                        requested_service=service_val,
+                        message=message_val
                     )
                     
                     res = analyze_lead_rules(lead_input)
